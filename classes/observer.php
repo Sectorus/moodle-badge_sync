@@ -16,6 +16,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use moodle_url;
+
 /**
  * Email signup notification event observers.
  *
@@ -66,23 +68,79 @@ class local_badge_sync_observer {
 				$badge[$key] = $value;
 			}			
 		}
+		$course_id = $json['badges'][$i]['courseid'];
+		$course_name = null;
+		if(!is_null($course_id)){
+			$course_name = $DB->get_record('course', array('id' => $course_id));
+		}
+		$badge['course'] = $course_name->fullname;
 		array_push($result, $badge);
 	}
 	
 	
 	$payload = array(
-		'json' => $json
+		//'json' => $json
 	);
 	
-	$url = get_config('local_badge_sync', 'target_post') . urlencode(json_encode($result));
+	$t = trim(json_encode($result), '[]');
+	$url = get_config('local_badge_sync', 'target_post') . urlencode($t);
 	$ch = curl_init($url);
 	$postString = http_build_query($payload, '', '&');
 	curl_setopt($ch, CURLOPT_POST, 1);
 	curl_setopt($ch, CURLOPT_POSTFIELDS, $postString);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 	curl_exec($ch);
+	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 	curl_close($ch);
 	
 	return true;
     }
+    
+    public static function course_created(\core\event\course_created $event) {
+	$t = serialize($event);
+	
+	$result = array();
+	$result['event'] = "course_created";
+	$result['coursename'] = $event->other['fullname'];
+	$result['course_id'] = $event->courseid;
+	$t = trim(json_encode($result), '[]');
+
+	$url = get_config('local_badge_sync', 'target_post') . urlencode($t);
+	$ch = curl_init($url);
+	$postString = http_build_query($payload, '', '&');
+	curl_setopt($ch, CURLOPT_POST, 1);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $postString);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_exec($ch);
+	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	curl_close($ch);
+	return true;
+	}
+	
+	 public static function badge_created(\core\event\badge_created $event) {
+	global $DB;
+	$data = $DB->get_record('badge', array('id' => $event->objectid));
+	$badgeurl = moodle_url::make_webservice_pluginfile_url($event->contextid, 'badges', 'badgeimage', $event->objectid, '/','f1')->out(false);
+	$badgeurl = str_replace("/webservice", "", $badgeurl);
+	
+	$result = array();
+	$result['event'] = "badge_created";
+	$result['id'] = $event->objectid;
+	$result['name'] = $data->name;
+	$result['courseid'] = $data->courseid;
+	$result['expiredate'] = $data->expiredate;
+	$result['badgeurl'] = $badgeurl;
+	$t = trim(json_encode($result), '[]');
+	
+	$url = get_config('local_badge_sync', 'target_post') . urlencode($t);
+	$ch = curl_init($url);
+	$postString = http_build_query($payload, '', '&');
+	curl_setopt($ch, CURLOPT_POST, 1);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $postString);
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	curl_exec($ch);
+	$httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+	curl_close($ch);
+	return true;
+	}
 }

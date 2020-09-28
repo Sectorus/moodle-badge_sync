@@ -29,4 +29,12 @@ $observers = array(
         'eventname' => '\core\event\badge_awarded',
         'callback' => 'local_badge_sync_observer::badge_awarded',
     ),
+    array(
+        'eventname' => '\core\event\course_created',
+        'callback' => 'local_badge_sync_observer::course_created',
+    ),
+     array(
+        'eventname' => '\core\event\badge_created',
+        'callback' => 'local_badge_sync_observer::badge_created',
+    ),
 );

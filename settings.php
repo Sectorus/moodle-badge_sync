@@ -19,7 +19,7 @@
  *
  * @package    local_badge_sync
  * @author     Stephan Lorbek
- * @copyright  2020 Stephan Lorbeka
+ * @copyright  2020 Stephan Lorbek
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -29,15 +29,7 @@ defined('MOODLE_INTERNAL') || die();
 if ($hassiteconfig) {
     $settings = new admin_settingpage('local_badge_sync', get_string('pluginname', 'local_badge_sync'));
 	$ADMIN->add('localplugins', $settings);
-	 
-	$default = $_SERVER['SERVER_NAME'];
-    $name = 'local_badge_sync/target_moodle';
-    $title = get_string('target_moodle', 'local_badge_sync');
-    $description = get_string('target_moodle_description', 'local_badge_sync');
-    $setting = new admin_setting_configtext($name, $title, $description, $default, PARAM_RAW);
-    $settings->add($setting);
-    
-     
+	  
 	$default = 'http://remote.server?json=';
     $name = 'local_badge_sync/target_post';
     $title = get_string('target_post', 'local_badge_sync');
@@ -45,12 +37,10 @@ if ($hassiteconfig) {
     $setting = new admin_setting_configtext($name, $title, $description, $default, PARAM_RAW);
     $settings->add($setting);
     
-	$default = '';
-    $name = 'local_badge_sync/token';
-    $title = get_string('token', 'local_badge_sync');
-    $description = get_string('token_description', 'local_badge_sync');
-    $setting = new admin_setting_configtext($name, $title, $description, $default, PARAM_RAW);
+    $default = '';
+    $name = 'local_badge_sync/payload';
+    $title = get_string('json_payload', 'local_badge_sync');
+    $description = get_string('json_payload_description', 'local_badge_sync');
+    $setting = new admin_setting_configcheckbox($name, $title, $description, false, true, false);
     $settings->add($setting);
-    
-   
 }

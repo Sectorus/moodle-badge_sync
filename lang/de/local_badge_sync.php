@@ -25,10 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Badge Sync';
-$string['target_moodle'] = 'Ziel-Moodle';
-$string['target_moodle_description'] = 'Moodle-Instanz von der die Daten geholt werden sollen.';
 $string['target_post'] = 'Ziel-Server';
 $string['target_post_description'] = 'Ziel-Server wohin die Badgeinformation per POST gesendet werden sollen.';
-$string['token'] = 'Authentifizierungs Token';
-$string['token_description'] = 'Dieser Token wird zur Authentifizierung der Moodle Webservices verwendet.';
-
+$string['json_payload'] = 'JSON als Payload mitsenden';
+$string['json_payload_description'] = 'Gibt an, ob der gesamte Informationssatz als Payload im JSON-Format mitgesendet werden soll.';

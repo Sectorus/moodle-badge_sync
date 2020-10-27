@@ -29,3 +29,4 @@ $string['target_post'] = 'Target Server';
 $string['target_post_description'] = 'Target server for the POST request.';
 $string['json_payload'] = 'Transmit JSON as payload';
 $string['json_payload_description'] = 'Determines if the whole data set should be send formatted in JSON.';
+$string['cron_retry'] = 'Send scheduled badge informations';

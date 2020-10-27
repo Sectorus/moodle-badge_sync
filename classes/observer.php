@@ -18,8 +18,7 @@ defined('MOODLE_INTERNAL') || die();
 use moodle_url;
 
 /**
- * Email signup notification event observers.
- *
+ * 
  * @package    local_badge_sync
  * @author     Stephan Lorbek
  * @copyright  2020 Stephan Lorbek
@@ -29,8 +28,9 @@ use moodle_url;
 class local_badge_sync_observer
 {
 
-    public static function request_handling($url, $payload)
+    public static function request_handling($url, $payload, $event, $type)
     {
+        global $PAGE;
         if (!get_config('local_badge_sync', 'payload'))
         {
             $payload = array();
@@ -43,7 +43,83 @@ class local_badge_sync_observer
         $response = curl_exec($ch);
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
+
+        $target = explode("=", $url);
+
+        $event = \local_badge_sync\event\server_response::create(array(
+            'courseid' => $event->courseid,
+            'relateduserid' => $event->relateduserid,
+            'context' => $PAGE->context,
+            'objectid' => $event->objectid,
+            'other' => array(
+                'httpcode' => $httpcode,
+                'requesttype' => $type,
+                'target' => $target[0] . '=',
+            )
+        ));
+        $event->trigger();
+		
+		if($httpcode != 200)
+		{
+			local_badge_sync_observer::storeInDB($event->courseid, $url, $postString);
+		}
         return $response;
+    }
+
+    public static function storeInDB($courseid, $url, $payload)
+    {
+        global $DB;
+        $entry = new stdClass();
+        $entry->courseid = $courseid;
+        $entry->url = $url;
+        $entry->payload = $payload;
+        try
+        {
+            $DB->insert_record('local_badge_sync', $entry);
+        }
+        catch(\dml_exception $de)
+        {
+            echo "FAIL TO SAVE ENTRY";
+            print_r($de->error);
+            echo PHP_EOL;
+        }
+    }
+
+    public static function badge_handler($type, $event)
+    {
+        global $DB;
+        $data = $DB->get_record('badge', array(
+            'id' => $event->objectid,
+        ));
+        $badgeurl = moodle_url::make_webservice_pluginfile_url($event->contextid, 'badges', 'badgeimage', $event->objectid, '/', 'f1')
+            ->out(false);
+        $badgeurl = str_replace("/webservice", "", $badgeurl);
+
+        //Fields not used anymore 'courseid' => $data->courseid, 'expiredate' => $data->expiredate,
+        $result = ['event' => $type, 'id' => $event->objectid, 'name' => $data->name, 'badgeurl' => $badgeurl, ];
+        $t = trim(json_encode($result) , '[]');
+
+        $payload = ['json' => json_encode((array)$event) , ];
+
+        $url = get_config('local_badge_sync', 'target_post') . urlencode($t);
+        $response = local_badge_sync_observer::request_handling($url, $payload, $event, $type);
+        return true;
+    }
+
+    public static function course_handler($type, $event)
+    {
+        global $DB;
+        $sql = "SELECT mcc.name FROM {course_categories} mcc INNER JOIN {course} mc ON(mcc.id = mc.category) WHERE mc.id = " . $event->courseid;
+        $data = $DB->get_record_sql($sql);
+
+        $result = ['event' => $type, 'coursename' => $event->other['fullname'], 'course_id' => $event->courseid, 'course_category' => $data->name, ];
+        $t = trim(json_encode($result) , '[]');
+
+        $payload = ['json' => json_encode((array)$event) , ];
+
+        $url = get_config('local_badge_sync', 'target_post') . urlencode($t);
+        $response = local_badge_sync_observer::request_handling($url, $payload, $event, $type);
+        return true;
     }
 
     public static function badge_awarded(\core\event\badge_awarded $event)
@@ -55,37 +131,31 @@ class local_badge_sync_observer
         $user_db = $DB->get_record('user', array(
             'id' => $userid
         ));
-        
+
         $result['event'] = 'badge_awarded';
         $result['username'] = $user_db->username;
         $result['email'] = $user_db->email;
         $result['courseid'] = $event->courseid;
         $result['badgeid'] = $event->objectid;
-		$result['expiredate'] = $event->other['dateexpire'];
-		$result['issuedate'] = $event->timecreated;
+        $result['expiredate'] = $event->other['dateexpire'];
+        $result['issuedate'] = $event->timecreated;
 
-        $payload = [
-			'json' => json_encode((array) $event),
-        ];
+        $payload = ['json' => json_encode((array)$event) , ];
 
         $t = trim(json_encode($result) , '[]');
         $url = get_config('local_badge_sync', 'target_post') . urlencode($t);
-        $response = local_badge_sync_observer::request_handling($url, $payload);
+        $response = local_badge_sync_observer::request_handling($url, $payload, $event, 'badge_awarded');
         return true;
     }
 
     public static function course_created(\core\event\course_created $event)
     {
-		global $DB;
-		$sql = "SELECT mcc.name FROM {course_categories} mcc INNER JOIN {course} mc ON(mcc.id = mc.category) WHERE mc.id = " . $event->courseid; 
-		$data = $DB->get_record_sql($sql);
+        local_badge_sync_observer::course_handler('course_created', $event);
+    }
 
-        $result = ['event' => "course_created", 'coursename' => $event->other['fullname'], 'course_id' => $event->courseid, 'course_category' => $data->name,];
-        $t = trim(json_encode($result) , '[]');
-
-        $url = get_config('local_badge_sync', 'target_post') . urlencode($t);
-        $response = local_badge_sync_observer::request_handling($url, $payload);
-        return true;
+    public static function course_updated(\core\event\course_updated $event)
+    {
+        local_badge_sync_observer::course_handler('course_updated', $event);
     }
 
     public static function badge_created(\core\event\badge_created $event)
@@ -97,14 +167,26 @@ class local_badge_sync_observer
         $badgeurl = moodle_url::make_webservice_pluginfile_url($event->contextid, 'badges', 'badgeimage', $event->objectid, '/', 'f1')
             ->out(false);
         $badgeurl = str_replace("/webservice", "", $badgeurl);
-		
-		//Fields not used anymore 'courseid' => $data->courseid, 'expiredate' => $data->expiredate, 
-        $result = [
-        'event' => "badge_created", 'id' => $event->objectid, 'name' => $data->name, 'badgeurl' => $badgeurl, ];
+
+        //Fields not used anymore 'courseid' => $data->courseid, 'expiredate' => $data->expiredate,
+        $result = ['event' => "badge_created", 'id' => $event->objectid, 'name' => $data->name, 'badgeurl' => $badgeurl, ];
         $t = trim(json_encode($result) , '[]');
 
+        $payload = ['json' => json_encode((array)$event) , ];
+
         $url = get_config('local_badge_sync', 'target_post') . urlencode($t);
-        $response = local_badge_sync_observer::request_handling($url, $payload);
+        $response = local_badge_sync_observer::request_handling($url, $payload, $event, "badge_created");
         return true;
     }
+
+    public static function badge_updated(\core\event\badge_updated $event)
+    {
+        local_badge_sync_observer::badge_handler('badge_updated', $event);
+    }
+
+    public static function badge_revoked(\core\event\badge_revoked $event)
+    {
+        local_badge_sync_observer::badge_handler('badge_revoked', $event);
+    }
 }
+

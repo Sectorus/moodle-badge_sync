@@ -34,6 +34,18 @@ $observers = array(
         'callback' => 'local_badge_sync_observer::course_created',
     ),
      array(
+        'eventname' => '\core\event\course_updated',
+        'callback' => 'local_badge_sync_observer::course_updated',
+    ),
+      array(
+        'eventname' => '\core\event\badge_updated',
+        'callback' => 'local_badge_sync_observer::badge_updated',
+    ),
+      array(
+        'eventname' => '\core\event\badge_revoked',
+        'callback' => 'local_badge_sync_observer::badge_revoked',
+    ),
+     array(
         'eventname' => '\core\event\badge_created',
         'callback' => 'local_badge_sync_observer::badge_created',
     ),

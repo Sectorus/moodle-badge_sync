@@ -29,3 +29,4 @@ $string['target_post'] = 'Ziel-Server';
 $string['target_post_description'] = 'Ziel-Server wohin die Badgeinformation per POST gesendet werden sollen.';
 $string['json_payload'] = 'JSON als Payload mitsenden';
 $string['json_payload_description'] = 'Gibt an, ob der gesamte Informationssatz als Payload im JSON-Format mitgesendet werden soll.';
+$string['cron_retry'] = 'Sende alle fehlgeschlagenen Badge Informationen erneut';
